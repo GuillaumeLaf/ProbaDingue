@@ -79,15 +79,14 @@ class WalkForwardBacktester:
         ax[0].plot(self.ts[-self.n_periods:])
         ax[1].plot(self.PnL)
         ax[2].plot(np.cumsum(self.PnL))
-    
+
 init_m = AR(1)
 init_m.set_params(np.array([-0.5]), 0.01)
-sample = init_m.sample(20000)
+sample = init_m.sample(2000)
 
 m = AR(1)
 logic = Trade_random(0.05, 5)
-fwdB = WalkForwardBacktester(m, logic, sample, 17500)
-
+fwdB = WalkForwardBacktester(m, logic, sample, 1750)
 
 # cProfile.run('fwdB.run()')
 
