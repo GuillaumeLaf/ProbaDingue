@@ -14,14 +14,14 @@ class MLE(Estimator):
     def __init__(self, model):
         super().__init__(model)
         
-    def get_estimator(self, ts:np.ndarray, idx_params:np.ndarray):
+    def get_estimator(self, ts:np.ndarray, idx_params:np.ndarray, init_guess=None):
         
-        x0 = self.model.get_initial_guess()
+        x0 = init_guess
         constr = self.model.get_constraints()
         
         res = minimize(self.normal_likelihood, x0, constraints=constr, args=(ts, idx_params))
         
-        return [res.x[idx_params[i]] for i in range(idx_params.shape[0])], res
+        return [res.x[idx_params[i]] for i in range(len(idx_params))], res
         
     def normal_likelihood(self, params:np.ndarray, x:np.ndarray, idx_params:np.ndarray):
         cond_var = self.model.get_conditional_variance(params[idx_params[0]])

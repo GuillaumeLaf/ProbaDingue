@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import numba as nb
 import Utilities as utils
 import Estimators as estim
+from Parameters import *
 
 class Model:
     def __init__(self):
@@ -25,9 +27,6 @@ class Model:
         return sple
     
 class AR(Model):
-    order:np.int8
-    phis:np.ndarray
-    var_e:np.float64
     prev_x:np.ndarray
     idx_params:np.ndarray
     stable:np.bool_
@@ -37,18 +36,20 @@ class AR(Model):
     # Add summary statistics for model
     
     def __init__(self, order:np.int8):
-        self.order = order
+        self.params = AR_parameters(order)
         
     def _check_params_initiated(self):
-        if not hasattr(self, 'phis'):
+        if not hasattr(self.params, 'phis'):
             raise ValueError('parameters not initiated')
         
     def set_params(self, phis:np.ndarray, var_e:np.float64):
-        self.phis = phis
-        self.var_e = var_e
+        self.params.set_phis(phis)
+        self.params.set_var_e(var_e)
         self.stable = self.check_stability()
     
-    def poly_roots(self, phis:np.ndarray):
+    @staticmethod
+    @nb.njit()
+    def poly_roots(phis:np.ndarray):
         """
         
 
@@ -63,16 +64,16 @@ class AR(Model):
             array with the roots of the "inverse" polynomial.
 
         """
+        const_term = np.array([1.0], dtype=np.float64)
+        poly = np.concatenate((const_term, -phis))
+        poly = np.flip(poly)
         
-        coeffs = -np.flip(phis)
-        poly = np.concatenate([coeffs, [1.0]])
-        roots = np.roots(poly)
+        roots = np.roots(poly.astype(np.complex128))
         return roots
     
     def check_stability(self):
         """
         
-
         Returns
         -------
         Bool
@@ -80,7 +81,7 @@ class AR(Model):
 
         """
         
-        return (np.abs(self.poly_roots(self.phis)) > 1.0).all()
+        return (np.abs(self.poly_roots(self.params.phis)) > 1.0).all()
     
     def draw(self):
         """
@@ -95,11 +96,11 @@ class AR(Model):
         
         self._check_params_initiated()
         # The first element of 'prev' is the most recent obs
-        prev = np.random.normal(0,1, (self.order))
+        prev = np.random.normal(0,self.params.var_e, (self.params.order))
         
         while True:
-            current_innov = np.random.normal(0,1)
-            current = self.phis @ prev + current_innov
+            current_innov = np.random.normal(0,self.params.var_e)
+            current = self.params.phis @ prev + current_innov
             yield current
             prev = np.concatenate((np.array([current]), prev[:-1]))
             
@@ -124,7 +125,9 @@ class AR(Model):
         
         return (params @ self.prev_x)
     
-    def get_conditional_variance(self, var_e:np.ndarray):
+    @staticmethod
+    @nb.njit()
+    def get_conditional_variance(var_e:np.ndarray):
         """
         Get the conditional variance of the error terms.
 
@@ -154,9 +157,11 @@ class AR(Model):
 
         """
         # Check if the inital guess is feasible
-        return np.concatenate((np.array([1.0]), np.repeat(1.0/self.order, self.order)))
+        return np.concatenate((np.array([1.0]), np.repeat(1.0/self.params.order, self.params.order)))
     
-    def constr_roots(self, params:np.ndarray):
+    @staticmethod
+    # @nb.njit()
+    def constr_roots(params:np.ndarray):
         """
         Return the constraint on the 'phis' parameters of the model in order to be stable.
         This function is used for the maximization of the likelihood.
@@ -174,11 +179,13 @@ class AR(Model):
 
         """
         
-        roots = self.poly_roots(params[1:])
+        roots = AR.poly_roots(params[1:].astype(np.complex128))
         roots = np.abs(roots)
         return np.min(roots) - 1.000001 # '.0000001' since inequalities are taken as non-negative
     
-    def constr_var(self, params:np.ndarray):
+    @staticmethod
+    @nb.njit()
+    def constr_var(params:np.ndarray):
         """
         This function is used to constraint the variance of the error to be positive.
         Note that we could use the 'bound' parameters of the 'minimize' function in the MLE object.
@@ -231,11 +238,10 @@ class AR(Model):
         
         self._check_params_initiated()
 
-        resid = ts[self.order:] - self.phis @ self.prev_x
-        self.residuals = np.concatenate((np.zeros((self.order,), dtype=np.float64), resid))
-        
+        resid = ts[self.params.order:] - self.params.phis @ self.prev_x
+        self.residuals = np.concatenate((np.zeros((self.params.order,), dtype=np.float64), resid))   
             
-    def fit(self, ts:np.ndarray):
+    def fit(self, ts:np.ndarray, init_guess=None):
         """
         Function that fits the model with the provided time serie.
         Estimation use the MLE as estimator.
@@ -251,19 +257,29 @@ class AR(Model):
 
         """
         
-        self.prev_x = np.array([ts[self.order-i:-i] for i in range(1,self.order+1)])
+        self.prev_x = np.array([ts[self.params.order-i:-i] for i in range(1,self.params.order+1)])
+        x0 = self.get_initial_guess() if init_guess is None else init_guess
+        # var_idx = np.array([0], dtype=np.int8)
+        # mean_idx = np.arange(1, self.params.order+1, dtype=np.int8)
+        var_idx = [0]
+        mean_idx = [i for i in range(1, self.params.order+1)]
+        self.idx_params = [var_idx, mean_idx]
         
-        self.idx_params = np.array([np.array([0]), np.arange(1, self.order+1)])
-        
-        t, res = estim.MLE(self).get_estimator(ts[self.order:], self.idx_params)
-        self.var_e, self.phis = t
+        t, res = estim.MLE(self).get_estimator(ts[self.params.order:], self.idx_params, x0)
+        temp_var_e, temp_phis = t
+        self.params.set_phis(temp_phis)
+        self.params.set_var_e(temp_var_e)
         
         self.get_residuals(ts)
         
         del(self.prev_x)
         del(self.idx_params)
-        
+    
+    def predict(self, prev_x:np.ndarray, steps:np.int64):
+        # prev_x must be at least the size of the order of the model
+        pass
             
 m = AR(3)
 m.set_params(np.array([0.7, -0.5, 0.2]), 1.0)
 s = m.sample(2000)
+m.fit(s)
