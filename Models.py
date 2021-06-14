@@ -123,11 +123,11 @@ class AR(Model):
 
         """
         
-        return (params @ self.prev_x)
+        return np.dot(params, self.prev_x)
     
-    @staticmethod
-    @nb.njit()
-    def get_conditional_variance(var_e:np.ndarray):
+    # @staticmethod
+    # @nb.njit()
+    def get_conditional_variance(self, var_e:np.ndarray):
         """
         Get the conditional variance of the error terms.
 
@@ -159,9 +159,9 @@ class AR(Model):
         # Check if the inital guess is feasible
         return np.concatenate((np.array([1.0]), np.repeat(1.0/self.params.order, self.params.order)))
     
-    @staticmethod
+    # @staticmethod
     # @nb.njit()
-    def constr_roots(params:np.ndarray):
+    def constr_roots(self, params:np.ndarray):
         """
         Return the constraint on the 'phis' parameters of the model in order to be stable.
         This function is used for the maximization of the likelihood.
@@ -179,30 +179,17 @@ class AR(Model):
 
         """
         
-        roots = AR.poly_roots(params[1:].astype(np.complex128))
+        roots = self.poly_roots(params[1:].astype(np.complex128))
         roots = np.abs(roots)
         return np.min(roots) - 1.000001 # '.0000001' since inequalities are taken as non-negative
     
-    @staticmethod
-    @nb.njit()
-    def constr_var(params:np.ndarray):
-        """
-        This function is used to constraint the variance of the error to be positive.
-        Note that we could use the 'bound' parameters of the 'minimize' function in the MLE object.
-
-        Parameters
-        ----------
-        params : np.ndarray
-            Every parameters of the model.
-
-        Returns
-        -------
-        TYPE
-            ...
-
-        """
-        
-        return params[0]
+    def get_variable_bounds(self):
+        bounds = [(0.000001, None)] # This bounds the variance to be strictly positive
+        for i in range(self.params.order):
+            bounds.append((None, None)) # The other parameters are not bounded
+            
+        return bounds
+            
     
     def get_constraints(self):
         """
@@ -216,8 +203,7 @@ class AR(Model):
 
         """
         
-        constr = ({'type':'ineq', 'fun': self.constr_roots}, 
-                  {'type':'ineq', 'fun': self.constr_var})
+        constr = ({'type':'ineq', 'fun': self.constr_roots})
         return constr
     
     def get_residuals(self, ts:np.ndarray):
@@ -278,8 +264,3 @@ class AR(Model):
     def predict(self, prev_x:np.ndarray, steps:np.int64):
         # prev_x must be at least the size of the order of the model
         pass
-            
-m = AR(3)
-m.set_params(np.array([0.7, -0.5, 0.2]), 1.0)
-s = m.sample(2000)
-m.fit(s)
