@@ -36,4 +36,17 @@ class Normal(Distribution):
         ssq = np.sum((x - mu)**2.0)
         return (len(x) * np.log(var))/2.0 + ssq/(2.0*var)
     
+    # Use chain rule to get the Jacobian and Hessian.
     
+    def grad_log_likelihood(self):
+        pass
+    
+    def grad_mu(self):  # need to take the gradient since it is a function of the params.
+        pass
+    
+    def grad_var(self):
+        pass
+    
+    def total_gradiant(self):
+        pass
+        
