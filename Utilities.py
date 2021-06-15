@@ -4,6 +4,19 @@ import pandas as pd
 import Models as models
 
 def plot_corrFunc(corr_lags:np.ndarray):
+    """
+    Function used as a pattern to plot the Autocorrelation and Autocovariance function
+
+    Parameters
+    ----------
+    corr_lags : np.ndarray
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
     max_lag = len(corr_lags)
     fig, ax = plt.subplots(1,1,figsize=(12, 8))
     ax.plot(np.arange(1,max_lag+1), corr_lags, 'o')
@@ -17,6 +30,23 @@ def plot_corrFunc(corr_lags:np.ndarray):
         ax.vlines(x=i+1, ymin=0.0, ymax=corr_lags[i], color='black')
 
 def acf(ts:np.ndarray, max_lag:np.int8):
+    """
+    Compute the Autocorrelation function of a time series 'ts' up to lag 'max_lag'
+
+    Parameters
+    ----------
+    ts : np.ndarray
+        DESCRIPTION.
+    max_lag : np.int8
+        DESCRIPTION.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    
     # Restrict 'max_lag' function length of ts
     out = np.empty((max_lag,), dtype=np.float64)
     for i in range(1, max_lag+1):
@@ -28,6 +58,23 @@ def plot_acf(ts:np.ndarray, max_lag:np.int8=20):
     plot_corrFunc(acf(ts, max_lag))
         
 def pacf(ts:np.ndarray, max_lag:np.int8):
+    """
+    Compute the Partial Autocorrelation function of a time series 'ts' up to lag 'max_lag'
+
+    Parameters
+    ----------
+    ts : np.ndarray
+        DESCRIPTION.
+    max_lag : np.int8
+        DESCRIPTION.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    
     # Restrict 'max_lag' function length of ts
     out = np.empty((max_lag,), dtype=np.float64)
     

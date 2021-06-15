@@ -24,13 +24,12 @@ class MLE(Estimator):
         constr = self.model.get_constraints()
         bounds = self.model.get_variable_bounds()
         
-        d = dist.Normal()
+        d = dist.Normal()   # We should be able to specify other distributions
         d.add_model(self.model)
         
-        res = minimize(d.cond_log_likelihood, x0, constraints=constr, bounds=bounds, args=(ts, idx_params))
+        res = minimize(d.cond_log_likelihood, x0, constraints=constr, bounds=bounds, args=(ts, idx_params), method='SLSQP')
         
         return [res.x[idx_params[i]] for i in range(len(idx_params))], res
-    
     
     
     

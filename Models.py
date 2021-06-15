@@ -122,11 +122,8 @@ class AR(Model):
             conditional expectation given 'prev_x'.
 
         """
-        
         return np.dot(params, self.prev_x)
     
-    # @staticmethod
-    # @nb.njit()
     def get_conditional_variance(self, var_e:np.ndarray):
         """
         Get the conditional variance of the error terms.
@@ -142,7 +139,6 @@ class AR(Model):
             variance of the error term.
 
         """
-        
         return var_e
     
     def get_initial_guess(self):
@@ -157,7 +153,7 @@ class AR(Model):
 
         """
         # Check if the inital guess is feasible
-        return np.concatenate((np.array([1.0]), np.repeat(1.0/self.params.order, self.params.order)))
+        return np.concatenate((np.array([1.0]), np.repeat(0.1, self.params.order)))
     
     # @staticmethod
     # @nb.njit()
@@ -190,7 +186,6 @@ class AR(Model):
             
         return bounds
             
-    
     def get_constraints(self):
         """
         Pack every constraints of the model in a unique function
@@ -245,8 +240,7 @@ class AR(Model):
         
         self.prev_x = np.array([ts[self.params.order-i:-i] for i in range(1,self.params.order+1)])
         x0 = self.get_initial_guess() if init_guess is None else init_guess
-        # var_idx = np.array([0], dtype=np.int8)
-        # mean_idx = np.arange(1, self.params.order+1, dtype=np.int8)
+
         var_idx = [0]
         mean_idx = [i for i in range(1, self.params.order+1)]
         self.idx_params = [var_idx, mean_idx]

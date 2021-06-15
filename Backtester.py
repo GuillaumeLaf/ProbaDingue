@@ -86,37 +86,39 @@ class WalkForwardBacktester:
 
 def worker2(data, logic, i):
     q = []
-    m = AR(2)
+    m = AR(1)
     for i in range(10):
-        fwdB = WalkForwardBacktester(m, logic, data, 500)
+        fwdB = WalkForwardBacktester(m, logic, data, 1750)
         fwdB.run()
         q.append(np.sum(fwdB.PnL))
     return q
 
 
 if __name__ == '__main__':
-    path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects\\ProbaDingue'
-    path_data = path_project + '\\binance_data\\15m\\ADABTC.csv'
-    data = pd.read_csv(path_data, sep=';', encoding='utf-8', header=0, index_col=0)['Close']
-    data = data.pct_change()
-    data = data.to_numpy()
-    data = np.log1p(data)
+    # path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects\\ProbaDingue'
+    # path_data = path_project + '\\binance_data\\15m\\ADABTC.csv'
+    # data = pd.read_csv(path_data, sep=';', encoding='utf-8', header=0, index_col=0)['Close']
+    # data = data.pct_change()
+    # data = data.to_numpy()
+    # data = np.log1p(data)[1:]
     
-    # init_m = AR(2)
-    # init_m.set_params(np.array([-0.7, 0.2]), 0.01)
-    # data = init_m.sample(2000)
+    init_m = AR(1)
+    init_m.set_params(np.array([-0.5]), 0.01)
+    data = init_m.sample(2000)
     
-    logic = Trade_random(0.05, 3)
+    logic = Trade_random(0.1, 3)
     
     partial_worker = partial(worker2, data, logic)
     
     start = time()
     
     
-    pool = multiprocessing.Pool()
-    result = pool.map_async(partial_worker, range(50))
+    # pool = multiprocessing.Pool()
+    # result = pool.map_async(partial_worker, range(300))
     
-    PnL = np.array(result.get()).ravel()
+    # PnL = np.array(result.get()).ravel()
+    
+    plt.hist(PnL, bins=100)
 
 
     end = time()
