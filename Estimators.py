@@ -27,9 +27,24 @@ class MLE(Estimator):
         d = dist.Normal()   # We should be able to specify other distributions
         d.add_model(self.model)
         
-        res = minimize(d.cond_log_likelihood, x0, constraints=constr, bounds=bounds, args=(ts, idx_params), method='SLSQP')
+        jac_ = d.grad_log_likelihood       
         
-        return [res.x[idx_params[i]] for i in range(len(idx_params))], res
+        res = minimize(d.neg_log_likelihood, x0, constraints=constr, bounds=bounds, args=(ts, idx_params), method='SLSQP')
+        
+        estimators_var = np.linalg.inv(d.hessian_log_likelihood(res.x, ts, idx_params))
+        estimators_var *= -1.0
+        estimators_var = np.squeeze(estimators_var)
+        estimators_var = np.diag(estimators_var)
+        
+        return [res.x[idx_params[i]] for i in range(len(idx_params))], [estimators_var[idx_params[i]] for i in range(len(idx_params))], res
+    
+        
+        
+    
+    
+    
+    
+    
     
     
     

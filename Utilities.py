@@ -76,6 +76,7 @@ def pacf(ts:np.ndarray, max_lag:np.int8):
     """
     
     # Restrict 'max_lag' function length of ts
+    # This function does not output the correct result !
     out = np.empty((max_lag,), dtype=np.float64)
     
     out[0] = (ts[:-1] @ ts[1:]) / len(ts)

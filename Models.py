@@ -6,6 +6,8 @@ import Utilities as utils
 import Estimators as estim
 from Parameters import *
 
+import autograd.numpy as anp
+
 class Model:
     def __init__(self):
         pass
@@ -96,15 +98,15 @@ class AR(Model):
         
         self._check_params_initiated()
         # The first element of 'prev' is the most recent obs
-        prev = np.random.normal(0,self.params.var_e, (self.params.order))
+        prev = np.random.normal(0,np.sqrt(self.params.var_e), (self.params.order))
         
         while True:
-            current_innov = np.random.normal(0,self.params.var_e)
+            current_innov = np.random.normal(0,np.sqrt(self.params.var_e))
             current = self.params.phis @ prev + current_innov
             yield current
             prev = np.concatenate((np.array([current]), prev[:-1]))
             
-    def get_conditional_expectation(self, params:np.ndarray):
+    def get_conditional_expectation(self, phis:np.ndarray):
         """
         Get the conditional expectation of the model.
         Note that we need to have initiated the variable 'prev_x' 
@@ -122,9 +124,10 @@ class AR(Model):
             conditional expectation given 'prev_x'.
 
         """
-        return np.dot(params, self.prev_x)
+        return anp.dot(phis, self.prev_x)
     
     def get_conditional_variance(self, var_e:np.ndarray):
+    
         """
         Get the conditional variance of the error terms.
 
@@ -141,6 +144,7 @@ class AR(Model):
         """
         return var_e
     
+    
     def get_initial_guess(self):
         """
         Initial guess used for the maximization of the Likelihood.
@@ -153,7 +157,7 @@ class AR(Model):
 
         """
         # Check if the inital guess is feasible
-        return np.concatenate((np.array([1.0]), np.repeat(0.1, self.params.order)))
+        return np.concatenate((np.array([0.1]), np.repeat(0.1, self.params.order)))
     
     # @staticmethod
     # @nb.njit()
@@ -179,8 +183,9 @@ class AR(Model):
         roots = np.abs(roots)
         return np.min(roots) - 1.000001 # '.0000001' since inequalities are taken as non-negative
     
+    
     def get_variable_bounds(self):
-        bounds = [(0.000001, None)] # This bounds the variance to be strictly positive
+        bounds = [(1e-9, None)] # This bounds the variance to be strictly positive
         for i in range(self.params.order):
             bounds.append((None, None)) # The other parameters are not bounded
             
@@ -245,15 +250,20 @@ class AR(Model):
         mean_idx = [i for i in range(1, self.params.order+1)]
         self.idx_params = [var_idx, mean_idx]
         
-        t, res = estim.MLE(self).get_estimator(ts[self.params.order:], self.idx_params, x0)
-        temp_var_e, temp_phis = t
+        esti, esti_var, res = estim.MLE(self).get_estimator(ts[self.params.order:], self.idx_params, x0)
+        self.res = res
+        temp_var_e, temp_phis = esti
+        temp_var_e_var, temp_phis_var = esti_var
+        
         self.params.set_phis(temp_phis)
         self.params.set_var_e(temp_var_e)
+        self.params.set_phis_var(temp_phis_var)
+        self.params.set_var_e_var(temp_var_e_var)
         
         self.get_residuals(ts)
         
-        del(self.prev_x)
-        del(self.idx_params)
+        # del(self.prev_x)
+        # del(self.idx_params)
     
     def predict(self, prev_x:np.ndarray, steps:np.int64):
         # prev_x must be at least the size of the order of the model

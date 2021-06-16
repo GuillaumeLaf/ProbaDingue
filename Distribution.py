@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numba as nb
 # from Models import *
+import autograd.numpy as anp
+from autograd import grad, jacobian, hessian
 
 class Distribution:
     def __init__(self):
@@ -20,33 +22,24 @@ class Distribution:
     def add_model(self, model):
         self.model = model
         
+    def grad_log_likelihood(self, params:np.ndarray, x:np.ndarray, idx_params:np.ndarray):
+        return grad(self.neg_log_likelihood, argnum=0)(params, x, idx_params)
+    
+    def hessian_log_likelihood(self, params:np.ndarray, x:np.ndarray, idx_params:np.ndarray):
+        return hessian(self.log_likelihood, argnum=0)(params, x, idx_params)
     
 class Normal(Distribution):
     def __init__(self):
         pass
     
-    def cond_log_likelihood(self, params:np.ndarray, x:np.ndarray, idx_params:np.ndarray):
-        # This function will be passed to the 'minimize' function
-        cond_exp = self.model.get_conditional_expectation(params[idx_params[1]])
-        cond_var = self.model.get_conditional_variance(params[idx_params[0]])
-        
-        return self.log_likelihood(cond_var, cond_exp, x)
+    def log_likelihood(self, params:np.ndarray, x:np.ndarray, idx_params:np.ndarray):
+        mu = self.model.get_conditional_expectation(params[idx_params[1]])
+        var = self.model.get_conditional_variance(params[idx_params[0]])
+        ssq = anp.sum((x - mu)**2.0)
+        return -(len(x) * anp.log(2.0*anp.pi*var))/2.0 - ssq/(2.0*var)
     
-    def log_likelihood(self, var:np.float64, mu:np.ndarray, x:np.ndarray):
-        ssq = np.sum((x - mu)**2.0)
-        return (len(x) * np.log(var))/2.0 + ssq/(2.0*var)
+    def neg_log_likelihood(self, params:np.ndarray, x:np.ndarray, idx_params:np.ndarray):
+        return -1.0 * self.log_likelihood(params, x, idx_params) / (x.size*10.0)
     
-    # Use chain rule to get the Jacobian and Hessian.
     
-    def grad_log_likelihood(self):
-        pass
-    
-    def grad_mu(self):  # need to take the gradient since it is a function of the params.
-        pass
-    
-    def grad_var(self):
-        pass
-    
-    def total_gradiant(self):
-        pass
-        
+  

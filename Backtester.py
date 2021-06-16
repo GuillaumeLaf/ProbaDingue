@@ -8,8 +8,8 @@ from Trade_logic import *
 import Utilities as utils
 import multiprocessing
 from time import time
-from queue import Queue
 from functools import partial
+from copy import deepcopy
 # Créer une classe "Trade" et "Position". La classe "Trade" contiendra plusieurs objets "Position".
 # Si la condition de trading est vérifiée, alors on créera un objet "Trade" et à chaque nouvelle barre on ajoute un objet "Position".
 
@@ -32,7 +32,8 @@ class WalkForwardBacktester:
         self.model_history = np.empty((self.n_periods,), dtype=Model)
         for i in range(self.n_periods):
             sequence = self.ts[i:i+self.n_train]
-            self.model_history[i] = self.__fit_model_to_sequence(sequence, None) if i == 0 else self.__fit_model_to_sequence(sequence, self.model_history[i-1].params.to_array())
+            self.__fit_model_to_sequence(sequence, None) if i == 0 else self.__fit_model_to_sequence(sequence, self.model_history[i-1].params.to_array())
+            self.model_history[i] = deepcopy(self.model)
             
             self.trade_logic.update_logic(self.model_history[i], sequence)
             
@@ -54,7 +55,6 @@ class WalkForwardBacktester:
             
     def __fit_model_to_sequence(self, sequence:np.ndarray, init_guess:np.ndarray):
         self.model.fit(sequence,init_guess=init_guess)
-        return self.model
     
     def params_history_to_df(self):
         cols = list(self.model_history[0].params.to_dict().keys())
@@ -88,7 +88,7 @@ def worker2(data, logic, i):
     q = []
     m = AR(1)
     for i in range(10):
-        fwdB = WalkForwardBacktester(m, logic, data, 1750)
+        fwdB = WalkForwardBacktester(m, logic, data, 2750)
         fwdB.run()
         q.append(np.sum(fwdB.PnL))
     return q
@@ -102,25 +102,36 @@ if __name__ == '__main__':
     # data = data.to_numpy()
     # data = np.log1p(data)[1:]
     
-    init_m = AR(1)
-    init_m.set_params(np.array([-0.5]), 0.01)
-    data = init_m.sample(2000)
+    np.random.seed(123)
     
-    logic = Trade_random(0.1, 3)
+    init_m = AR(2)
+    init_m.set_params(np.array([-0.5, 0.2]), 0.001)
+    data = init_m.sample(30000)
+    
+    logic = Trade_random(0.1, 4)
     
     partial_worker = partial(worker2, data, logic)
     
     start = time()
     
+    init_m.fit(data)
+    print(init_m.params.to_dict())
+    
+    from Distribution import *
+    d = Normal()
+    d.add_model(init_m)
+    print(d.grad_log_likelihood(init_m.params.to_array(), data[2:], init_m.idx_params))
+    print(init_m.res)
+    
     
     # pool = multiprocessing.Pool()
-    # result = pool.map_async(partial_worker, range(300))
+    # result = pool.map_async(partial_worker, range(10))
     
     # PnL = np.array(result.get()).ravel()
     
-    plt.hist(PnL, bins=100)
-
-
+    # plt.hist(PnL, bins=100)
+    
+    
     end = time()
     
     print(f'Time elapsed : {end - start}')
