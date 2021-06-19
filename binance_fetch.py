@@ -7,7 +7,7 @@ from zipfile import ZipFile
 
 # Add info about file in a csv (which crypto, how many obs, ...)
 
-# Should first 'extract_all_crypto' then 'regroup_csv'
+# Should first 'extract_all_crypto' then 'regroup_csv' (after the crypto has been downloaded).
 
 path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects\\ProbaDingue'
 path_klines = path_project + '\\fetch_binance\\data\\spot\\daily\\klines'
@@ -23,6 +23,7 @@ def extract_all_crypto(interval:str):
         extract_one_crypto(crypto, interval)
     
 def extract_one_crypto(crypto_name:str, interval:str):
+    # Extract the csv file from the zip file for a given crypto
     path_crypto = path_klines + '\\' + crypto_name 
     path_interval = path_crypto + '\\' + interval
     zipFiles_list = os.listdir(path_interval)
@@ -43,12 +44,13 @@ def extract_one_crypto(crypto_name:str, interval:str):
         extract_zip(path_zip, path_extracted_csv)
     
 def extract_zip(path_zip, extract_to):
-    # Extract zip file to the working directory !
-    
+    # Extract zip file to the given file.
     with ZipFile(path_zip, 'r') as z:
         z.extractall(path=extract_to)
 
 def regroup_csv(interval:str):
+    # Once the csv has been extracted from the zip files, 
+    # We regroup each separate csv file for a given crypto in a unique one. This function does it for all crypto.
     crypto_list = get_crypto_list()
     
     path_group = path_project + '\\binance_data\\' + interval
@@ -63,6 +65,7 @@ def regroup_csv(interval:str):
 # Should sort final dataframe with 'Open_time' column
     
 def regroup_csv_one_crypto(crypto_name:str, interval:str):
+    # Regroup the separate csv file for a given crypto in a unique csv.
     path_crypto = path_klines + '\\' + crypto_name
     path_interval = path_crypto + '\\' + interval + '_csv'
     csv_list = os.listdir(path_interval)

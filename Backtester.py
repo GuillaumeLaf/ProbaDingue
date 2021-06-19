@@ -10,8 +10,6 @@ import multiprocessing
 from time import time
 from functools import partial
 from copy import deepcopy
-# Créer une classe "Trade" et "Position". La classe "Trade" contiendra plusieurs objets "Position".
-# Si la condition de trading est vérifiée, alors on créera un objet "Trade" et à chaque nouvelle barre on ajoute un objet "Position".
 
 class WalkForwardBacktester:
     model_history:np.ndarray
@@ -102,11 +100,11 @@ if __name__ == '__main__':
     # data = data.to_numpy()
     # data = np.log1p(data)[1:]
     
-    np.random.seed(123)
+    # np.random.seed(123)
     
     init_m = AR(2)
     init_m.set_params(np.array([-0.5, 0.2]), 0.001)
-    data = init_m.sample(30000)
+    data = init_m.sample(3000)
     
     logic = Trade_random(0.1, 4)
     
@@ -114,14 +112,12 @@ if __name__ == '__main__':
     
     start = time()
     
-    init_m.fit(data)
-    print(init_m.params.to_dict())
+    # init_m.fit(data)
+    # print(init_m.params.to_dict())
     
-    from Distribution import *
-    d = Normal()
-    d.add_model(init_m)
-    print(d.grad_log_likelihood(init_m.params.to_array(), data[2:], init_m.idx_params))
-    print(init_m.res)
+    # from Distribution import *
+    # d = Normal()
+    # d.add_model(init_m)
     
     
     # pool = multiprocessing.Pool()

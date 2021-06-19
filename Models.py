@@ -45,7 +45,7 @@ class AR(Model):
             raise ValueError('parameters not initiated')
         
     def set_params(self, phis:np.ndarray, var_e:np.float64):
-        self.params.set_phis(phis)
+        self.params.set_phis(phis) # The coeff. for lag 1 is at the beginning of the array.
         self.params.set_var_e(var_e)
         self.stable = self.check_stability()
     
@@ -104,7 +104,7 @@ class AR(Model):
             current_innov = np.random.normal(0,np.sqrt(self.params.var_e))
             current = self.params.phis @ prev + current_innov
             yield current
-            prev = np.concatenate((np.array([current]), prev[:-1]))
+            prev = np.concatenate((np.array([current]), prev[:-1])) # Exclude the oldest obs and put the new at the beginning
             
     def get_conditional_expectation(self, phis:np.ndarray):
         """
@@ -262,9 +262,25 @@ class AR(Model):
         
         self.get_residuals(ts)
         
-        # del(self.prev_x)
-        # del(self.idx_params)
+        del(self.prev_x)
+        del(self.idx_params)
     
     def predict(self, prev_x:np.ndarray, steps:np.int64):
-        # prev_x must be at least the size of the order of the model
-        pass
+        # Note : this function may be cached since it uses a recursion.
+        # prev_x must strictly be the size of the order of the model
+        # the most recent obs is at the beginning of the array
+        current_pred = self.params.phis @ prev_x
+        if steps == 1:
+            return current_pred
+        else:
+            new_prev_x = np.concatenate(([current_pred], prev_x[:-1]))
+            return self.predict(new_prev_x, steps - 1)
+    
+    def rolling_pred(self, prev_x, steps:np.int64):
+        pred = np.empty((steps, ), dtype=np.float64)
+        
+        for i in range(steps):
+            pred[i] = self.predict(prev_x, i+1)  # '+1' since it loop start with '0'.
+            
+        return pred
+        

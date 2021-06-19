@@ -26,8 +26,7 @@ class MLE(Estimator):
         
         d = dist.Normal()   # We should be able to specify other distributions
         d.add_model(self.model)
-        
-        jac_ = d.grad_log_likelihood       
+              
         
         res = minimize(d.neg_log_likelihood, x0, constraints=constr, bounds=bounds, args=(ts, idx_params), method='SLSQP')
         
