@@ -5,6 +5,7 @@ import numba as nb
 import Utilities as utils
 import Estimators as estim
 from Parameters import *
+from functools import lru_cache
 
 import autograd.numpy as anp
 
@@ -265,22 +266,50 @@ class AR(Model):
         del(self.prev_x)
         del(self.idx_params)
     
-    def predict(self, prev_x:np.ndarray, steps:np.int64):
+    def predict_at_step(self, prev_x:np.ndarray, steps:np.int64):
         # Note : this function may be cached since it uses a recursion.
         # prev_x must strictly be the size of the order of the model
         # the most recent obs is at the beginning of the array
+        # Check if steps > 0.
         current_pred = self.params.phis @ prev_x
         if steps == 1:
             return current_pred
         else:
             new_prev_x = np.concatenate(([current_pred], prev_x[:-1]))
-            return self.predict(new_prev_x, steps - 1)
+            return self.predict_at_step(new_prev_x, steps - 1)
     
+    @lru_cache(maxsize=64)
     def rolling_pred(self, prev_x, steps:np.int64):
         pred = np.empty((steps, ), dtype=np.float64)
         
         for i in range(steps):
-            pred[i] = self.predict(prev_x, i+1)  # '+1' since it loop start with '0'.
+            pred[i] = self.predict_at_step(prev_x, i+1)  # '+1' since it loop start with '0'.
             
         return pred
+    
+    @lru_cache(maxsize=64)
+    def predict_var_at_step(self, steps:np.int64):
+        # Add check if steps > 0.
+        current_var_pred = self.params.var_e
+        if steps == 1:
+            return current_var_pred
+        else:
+            s = 0.0
+            if steps >= self.params.order + 1:
+                for i in range(self.params.order):
+                    s += (self.params.phis[i]**2.0) * self.predict_var_at_step(steps - i - 1)
+            else:
+                for i in range(steps-1):
+                    s += (self.params.phis[i]**2.0) * self.predict_var_at_step(steps - i - 1)
+                
+            return s + current_var_pred
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
