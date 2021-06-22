@@ -6,10 +6,12 @@ import Utilities as utils
 import Estimators as estim
 from Parameters import *
 from functools import lru_cache
+from Distribution import *
 
 import autograd.numpy as anp
 
 class Model:
+    ts:np.ndarray
     def __init__(self):
         pass
     
@@ -29,17 +31,42 @@ class Model:
             sple[i] = next(gen)
         return sple
     
+    def plot_prediction(self, n_prev:np.int16, n_predict:np.int16):
+        n_total = n_predict + n_prev
+        
+        mean_pred = self.rolling_pred(self.end_ts, n_predict)
+        # print(mean_pred)
+        std_pred = np.sqrt(self.rolling_var_pred(n_predict))
+        
+        mean_serie = np.concatenate((self.ts[-n_prev:], mean_pred))
+        
+        std_serie = np.concatenate((np.repeat(0.0, n_prev), std_pred))
+        std_serie_upper = mean_serie + 1.96*std_serie
+        std_serie_lower = mean_serie - 1.96*std_serie
+        
+        fig, ax = plt.subplots(1,1,figsize=(12, 8))
+        ax.plot(self.ts[-n_prev:])
+        ax.plot(mean_serie)
+        ax.plot(std_serie_upper)
+        ax.plot(std_serie_lower)
+        
+        
+    
 class AR(Model):
     prev_x:np.ndarray
     idx_params:np.ndarray
     stable:np.bool_
     residuals:np.ndarray
+    end_ts:np.ndarray   # This variable is used to store the last obs from the ts in order to do predictions.
+    # Most recent obs at the beginning
+    dist:Distribution   # Have to be initialised !!!
     
     # Add confidence interval computation
     # Add summary statistics for model
     
     def __init__(self, order:np.int8):
         self.params = AR_parameters(order)
+        self.dist = Normal()
         
     def _check_params_initiated(self):
         if not hasattr(self.params, 'phis'):
@@ -207,7 +234,7 @@ class AR(Model):
         constr = ({'type':'ineq', 'fun': self.constr_roots})
         return constr
     
-    def get_residuals(self, ts:np.ndarray):
+    def get_residuals(self):
         """
         Get the residuals after estimation for the model.
         Note that the model needs to have the parameters initiated.
@@ -225,7 +252,7 @@ class AR(Model):
         
         self._check_params_initiated()
 
-        resid = ts[self.params.order:] - self.params.phis @ self.prev_x
+        resid = self.ts[self.params.order:] - self.params.phis @ self.prev_x
         self.residuals = np.concatenate((np.zeros((self.params.order,), dtype=np.float64), resid))   
             
     def fit(self, ts:np.ndarray, init_guess=None):
@@ -236,7 +263,7 @@ class AR(Model):
         Parameters
         ----------
         ts : np.ndarray
-            Inital time serie on which the model is fitted.
+            Inital time serie on which the model is fitted. Most recent observation at the end of array.
 
         Returns
         -------
@@ -261,7 +288,9 @@ class AR(Model):
         self.params.set_phis_var(temp_phis_var)
         self.params.set_var_e_var(temp_var_e_var)
         
-        self.get_residuals(ts)
+        self.ts = ts
+        self.get_residuals()
+        self.end_ts = np.flip(ts[-self.params.order:])   # 'flip' in order to have the most recent obs. at the beginning of array
         
         del(self.prev_x)
         del(self.idx_params)
@@ -278,13 +307,10 @@ class AR(Model):
             new_prev_x = np.concatenate(([current_pred], prev_x[:-1]))
             return self.predict_at_step(new_prev_x, steps - 1)
     
-    @lru_cache(maxsize=64)
-    def rolling_pred(self, prev_x, steps:np.int64):
+    def rolling_pred(self, prev_x:np.ndarray, steps:np.int64):
         pred = np.empty((steps, ), dtype=np.float64)
-        
         for i in range(steps):
             pred[i] = self.predict_at_step(prev_x, i+1)  # '+1' since it loop start with '0'.
-            
         return pred
     
     @lru_cache(maxsize=64)
@@ -303,6 +329,12 @@ class AR(Model):
                     s += (self.params.phis[i]**2.0) * self.predict_var_at_step(steps - i - 1)
                 
             return s + current_var_pred
+        
+    def rolling_var_pred(self, steps:np.int64):
+        var_pred = np.empty((steps, ), dtype=np.float64)
+        for i in range(steps):
+            var_pred[i] = self.predict_var_at_step(i)
+        return var_pred
         
         
         

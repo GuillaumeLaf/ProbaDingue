@@ -5,6 +5,7 @@ import numba as nb
 # from Models import *
 import autograd.numpy as anp
 from autograd import grad, jacobian, hessian
+from scipy.stats import norm
 
 class Distribution:
     def __init__(self):
@@ -40,6 +41,9 @@ class Normal(Distribution):
     
     def neg_log_likelihood(self, params:np.ndarray, x:np.ndarray, idx_params:np.ndarray):
         return -1.0 * self.log_likelihood(params, x, idx_params) / (x.size*10.0)
+    
+    def cdf(self, x:np.float64, mu:np.float64, std:np.float64):
+        return norm.cdf(x, mu, std)
     
     
   

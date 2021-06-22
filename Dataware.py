@@ -6,8 +6,8 @@ from Statistics import *
 from functools import partial
 import multiprocessing
 
-path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects\\ProbaDingue'
-path_data = path_project + '\\binance_data\\15m'
+path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects'
+path_data = path_project + '\\Data_Binance\\15m'
 
 def get_files_names():
     # Get the file's names for all crypto.
@@ -45,13 +45,13 @@ def run_one_file(func, col:str, *args):
     df = pd.read_csv(path_file, sep=';', index_col=0)[col]
     return (args[-1],func(df.to_numpy())) if args[:-1] == () else (args[-1],func(df.to_numpy(), args[:-1]))
 
-def create_statistics(ts:np.ndarray):
+def __create_statistics(ts:np.ndarray):
     #This function create a 'Statistic' object for the given time serie.
     return Statistics(ts)
 
-def group_statistic_ts(col:str):
+def __group_statistic_ts(col:str):
     # This function returns a DataFrame with the statistics contained in the 'Statistic' object.
-    dic = run_over_files(create_statistics, col)
+    dic = run_over_files(__create_statistics, col)
     cols = map(lambda s: s + '_'+col, list(dic.values())[0].cols)
     cols = list(cols)
     d = {}
@@ -59,13 +59,14 @@ def group_statistic_ts(col:str):
         d[key] = value.array_from_stats()
     return pd.DataFrame.from_dict(d, orient='index', columns=cols)
 
-def group_all_statistics():
+def __group_all_statistics():
     # This function apply the function 'group_statistic_ts' to every columns.
     cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'N_trades']
     
     df = pd.DataFrame()
     for c in cols:
-        df_col = group_statistic_ts(c)
+        print('Dealing with : ', c)
+        df_col = __group_statistic_ts(c)
         df = pd.concat([df, df_col], axis=1)
     
     df.index.name = 'Ticker'
@@ -73,22 +74,22 @@ def group_all_statistics():
 
 def export_all_statistics():
     # Export the statistics for every columns and every files to a csv.
-    path_export = path_project + '\\export_all_stats.csv'
-    df = group_all_statistics()
+    path_export = path_project + '\\ProbaDingue\\export_all_stats.csv'
+    df = __group_all_statistics()
     df.to_csv(path_export, sep=';', float_format='%.15f', encoding='utf-8')
     
-def split_all_tickers():
+def __split_all_tickers():
     # Split the crypto and base crypto for all files.
-    path_all_stats = path_project + '\\export_all_stats.csv'
+    path_all_stats = path_project + '\\ProbaDingue\\export_all_stats.csv'
     df = pd.read_csv(path_all_stats, sep=';', index_col=0)
     tickers = df.index
     
     d = {}
     for s in tickers:
-        d[s] = split_one_ticker(s)
+        d[s] = __split_one_ticker(s)
     return pd.DataFrame.from_dict(d, orient='index', columns=['Tick', 'Base'])
 
-def split_one_ticker(ticker:str):
+def __split_one_ticker(ticker:str):
     # Split the tickers into the crypto and the base crypto.
     bases = ['BTC', 'ETH', 'BNB', 'USDT']
     for b in bases:
@@ -102,10 +103,10 @@ def split_one_ticker(ticker:str):
 
 def add_split_tickers():
     # Add the splitted crypto and base crypto as new columns to the existing summary statistic file.
-    path_all_stats = path_project + '\\export_all_stats.csv'
+    path_all_stats = path_project + '\\ProbaDingue\\export_all_stats.csv'
     df = pd.read_csv(path_all_stats, sep=';', index_col=0)
     if not 'Base' in df.columns:
-        df_tickers = split_all_tickers()
+        df_tickers = __split_all_tickers()
         df = pd.concat([df_tickers, df], axis=1)
         df.to_csv(path_all_stats, sep=';', float_format='%.15f', encoding='utf-8')
     
@@ -115,7 +116,12 @@ def add_split_tickers():
 # if __name__ == "__main__":
 #     print(parrallelized_run_over_files(su, 'Close'))
     
-    
+if __name__ == '__main__':
+    path_stats = path_project + '\\ProbaDingue\\export_all_stats.csv'
+    data = pd.read_csv(path_stats, sep=';', encoding='utf-8', index_col=0)
+    data = data[data.loc[:, 'sample_size_Open'] >= 2000]
+    data = data[data.loc[:, 'p50_Volume'] <= 0.5e5]
+    data = data[data.loc[:, 'p50_Volume'] >= 1000]
     
     
     

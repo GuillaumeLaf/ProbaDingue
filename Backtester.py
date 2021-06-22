@@ -82,10 +82,14 @@ class WalkForwardBacktester:
         
         
 
-def worker2(data, logic, i):
+def worker2(logic, i):
+    init_m = AR(2)
+    init_m.set_params(np.array([-0.2, 0.1]), 0.001)
+    
     q = []
-    m = AR(1)
+    m = AR(2)
     for i in range(10):
+        data = init_m.sample(3000)
         fwdB = WalkForwardBacktester(m, logic, data, 2750)
         fwdB.run()
         q.append(np.sum(fwdB.PnL))
@@ -93,8 +97,8 @@ def worker2(data, logic, i):
 
 
 if __name__ == '__main__':
-    # path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects\\ProbaDingue'
-    # path_data = path_project + '\\binance_data\\15m\\ADABTC.csv'
+    # path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects'
+    # path_data = path_project + '\\Data_Binance\\15m\\ADABTC.csv'
     # data = pd.read_csv(path_data, sep=';', encoding='utf-8', header=0, index_col=0)['Close']
     # data = data.pct_change()
     # data = data.to_numpy()
@@ -102,30 +106,33 @@ if __name__ == '__main__':
     
     # np.random.seed(123)
     
-    init_m = AR(2)
-    init_m.set_params(np.array([-0.5, 0.2]), 0.001)
-    data = init_m.sample(3000)
+
     
-    logic = Trade_random(0.1, 4)
+    # logic = Trade_random(0.1, 4)
+    logic = AR_logic(0.2, 1, 1)
     
-    partial_worker = partial(worker2, data, logic)
+    partial_worker = partial(worker2, logic)
     
     start = time()
     
+    # fwdB = WalkForwardBacktester(AR(2), logic, data, 2750)
+    # fwdB.run()
+    # fwdB.plot_PnL()
+    
     # init_m.fit(data)
-    # print(init_m.params.to_dict())
+    # print(init_m.params.to_dict())()
     
     # from Distribution import *
     # d = Normal()
     # d.add_model(init_m)
     
     
-    # pool = multiprocessing.Pool()
-    # result = pool.map_async(partial_worker, range(10))
+    pool = multiprocessing.Pool()
+    result = pool.map_async(partial_worker, range(15))
     
-    # PnL = np.array(result.get()).ravel()
+    PnL = np.array(result.get()).ravel()
     
-    # plt.hist(PnL, bins=100)
+    plt.hist(PnL, bins=100)
     
     
     end = time()

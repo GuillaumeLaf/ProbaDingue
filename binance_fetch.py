@@ -9,8 +9,8 @@ from zipfile import ZipFile
 
 # Should first 'extract_all_crypto' then 'regroup_csv' (after the crypto has been downloaded).
 
-path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects\\ProbaDingue'
-path_klines = path_project + '\\fetch_binance\\data\\spot\\daily\\klines'
+path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects'
+path_klines = path_project + '\\Data_Binance_Get\\data\\spot\\daily\\klines'
 
 def get_crypto_list():
     return os.listdir(path_klines)
@@ -28,6 +28,7 @@ def extract_one_crypto(crypto_name:str, interval:str):
     path_interval = path_crypto + '\\' + interval
     zipFiles_list = os.listdir(path_interval)
     
+    # If file is empty, we delete it (may happen when there is no file to download from Binance)
     if len(zipFiles_list) == 0:
         shutil.rmtree(path_crypto)
         return
@@ -53,7 +54,7 @@ def regroup_csv(interval:str):
     # We regroup each separate csv file for a given crypto in a unique one. This function does it for all crypto.
     crypto_list = get_crypto_list()
     
-    path_group = path_project + '\\binance_data\\' + interval
+    path_group = path_project + '\\Data_Binance\\' + interval
     if os.path.exists(path_group):
         shutil.rmtree(path_group)
     os.mkdir(path_group)
@@ -83,7 +84,7 @@ def regroup_csv_one_crypto(crypto_name:str, interval:str):
         
     df = pd.concat(df_list, ignore_index=True)
     
-    path_regrouped = path_project + '\\binance_data\\' + interval + '\\' + crypto_name + '.csv'
+    path_regrouped = path_project + '\\Data_Binance\\' + interval + '\\' + crypto_name + '.csv'
     
     df.to_csv(path_regrouped, sep=';', float_format='%.15f', encoding='utf-8')
     

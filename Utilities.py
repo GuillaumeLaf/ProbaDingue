@@ -100,4 +100,17 @@ def pacf(ts:np.ndarray, max_lag:np.int8):
 
 def plot_pacf(ts:np.ndarray, max_lag:np.int8=20):
     plot_corrFunc(pacf(ts, max_lag))
+    
+
+    
+
+
+
+
+
+
+
+
+
+
 
