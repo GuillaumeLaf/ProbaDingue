@@ -7,11 +7,11 @@ import Estimators as estim
 from Parameters import *
 from functools import lru_cache
 from Distribution import *
-
+from Arrays import *
 import autograd.numpy as anp
 
 class Model:
-    ts:np.ndarray
+    ts:Array
     def __init__(self):
         pass
     
@@ -255,7 +255,7 @@ class AR(Model):
         resid = self.ts[self.params.order:] - self.params.phis @ self.prev_x
         self.residuals = np.concatenate((np.zeros((self.params.order,), dtype=np.float64), resid))   
             
-    def fit(self, ts:np.ndarray, init_guess=None):
+    def fit(self, ts:Array, init_guess=None):
         """
         Function that fits the model with the provided time serie.
         Estimation use the MLE as estimator.
