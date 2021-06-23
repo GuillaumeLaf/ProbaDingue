@@ -15,6 +15,7 @@ class WalkForwardBacktester:
     model_history:np.ndarray
     trade_history:list
     PnL:np.ndarray
+    PnL_statistics:Statistics
     def __init__(self, model:Model, trade_logic:Trade_Logic, ts:np.ndarray, n_train:np.int8):
         self.model = model  # Model should already be initialised
         self.trade_logic = trade_logic  # Trade_logic should already be initialised
@@ -44,6 +45,7 @@ class WalkForwardBacktester:
                     self.trade_history.append(Trade(i+1)) # '+1' since the trade is actually opened the next period
                     # Check if last 'Trade' is empty
         self.__compute_PnL()
+        self.PnL_statistics = Statistics(self.PnL)
                     
     def _is_trade_open(self):
         if len(self.trade_history) == 0:
@@ -54,7 +56,7 @@ class WalkForwardBacktester:
     def __fit_model_to_sequence(self, sequence:np.ndarray, init_guess:np.ndarray):
         self.model.fit(sequence,init_guess=init_guess)
     
-    def params_history_to_df(self):
+    def __params_history_to_df(self):
         cols = list(self.model_history[0].params.to_dict().keys())
         params_history = np.empty((self.n_periods, len(cols)), dtype=np.float64)
         for i, model in enumerate(self.model_history):
@@ -63,7 +65,7 @@ class WalkForwardBacktester:
         return pd.DataFrame(params_history, columns=cols)
     
     def plot_params_history(self):
-        params_history = self.params_history_to_df()
+        params_history = self.__params_history_to_df()
         params_history.plot(subplots=True, figsize=(12, 15))
 
     def __compute_PnL(self):
@@ -127,10 +129,10 @@ if __name__ == '__main__':
     # d.add_model(init_m)
     
     
-    pool = multiprocessing.Pool()
-    result = pool.map_async(partial_worker, range(15))
+    # pool = multiprocessing.Pool()
+    # result = pool.map_async(partial_worker, range(15))
     
-    PnL = np.array(result.get()).ravel()
+    # PnL = np.array(result.get()).ravel()
     
     plt.hist(PnL, bins=100)
     
