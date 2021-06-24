@@ -2,10 +2,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from Models import *
+from Transformations import *
+from Arrays import *
 
 class Trade_Logic:
     model:Model
     sequence:np.ndarray     # correspond to the part of the ts which is visible to the Model (for estim, ...)
+    pipeline:Transformation_Pipeline
     def __init__(self):
         pass
     

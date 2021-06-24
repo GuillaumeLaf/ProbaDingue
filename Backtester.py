@@ -10,16 +10,17 @@ import multiprocessing
 from time import time
 from functools import partial
 from copy import deepcopy
+from Arrays import *
 
 class WalkForwardBacktester:
     model_history:np.ndarray
     trade_history:list
     PnL:np.ndarray
     PnL_statistics:Statistics
-    def __init__(self, model:Model, trade_logic:Trade_Logic, ts:np.ndarray, n_train:np.int8):
+    def __init__(self, model:Model, trade_logic:Trade_Logic, ts:TransformedTS, n_train:np.int8):
         self.model = model  # Model should already be initialised
         self.trade_logic = trade_logic  # Trade_logic should already be initialised
-        self.ts = ts
+        self.ts = ts    # This array is supposed to be the ts in price (not transformed)
         self.n_train = n_train
         self.n_periods = len(self.ts) - self.n_train
         self.trade_history = []

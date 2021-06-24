@@ -11,7 +11,7 @@ from Arrays import *
 import autograd.numpy as anp
 
 class Model:
-    ts:Array
+    ts:TransformedTS
     def __init__(self):
         pass
     
@@ -26,6 +26,7 @@ class Model:
     
     def sample(self, n:np.int64):
         sple = np.empty((n,), dtype=np.float64)
+        sple = TransformedTS(sple)
         gen = self.draw()
         for i in range(n):
             sple[i] = next(gen)
@@ -34,7 +35,7 @@ class Model:
     def plot_prediction(self, n_prev:np.int16, n_predict:np.int16):
         n_total = n_predict + n_prev
         
-        mean_pred = self.rolling_pred(self.end_ts, n_predict)
+        mean_pred = self.rolling_pred(self.end_ts(), n_predict)
         # print(mean_pred)
         std_pred = np.sqrt(self.rolling_var_pred(n_predict))
         
@@ -53,11 +54,11 @@ class Model:
         
     
 class AR(Model):
-    prev_x:np.ndarray
+    prev_x:TransformedTS
     idx_params:np.ndarray
     stable:np.bool_
-    residuals:np.ndarray
-    end_ts:np.ndarray   # This variable is used to store the last obs from the ts in order to do predictions.
+    residuals:TransformedTS
+    end_ts:TransformedTS   # This variable is used to store the last obs from the ts in order to do predictions.
     # Most recent obs at the beginning
     dist:Distribution   # Have to be initialised !!!
     
@@ -152,7 +153,7 @@ class AR(Model):
             conditional expectation given 'prev_x'.
 
         """
-        return anp.dot(phis, self.prev_x)
+        return anp.dot(phis, self.prev_x())
     
     def get_conditional_variance(self, var_e:np.ndarray):
     
@@ -252,10 +253,11 @@ class AR(Model):
         
         self._check_params_initiated()
 
-        resid = self.ts[self.params.order:] - self.params.phis @ self.prev_x
-        self.residuals = np.concatenate((np.zeros((self.params.order,), dtype=np.float64), resid))   
+        resid = self.ts[self.params.order:] - self.params.phis @ self.prev_x()
+        self.residuals = np.concatenate((np.zeros((self.params.order,), dtype=np.float64), resid))
+        self.residuals = TransformedTS(self.residuals)
             
-    def fit(self, ts:Array, init_guess=None):
+    def fit(self, ts:TransformedTS, init_guess=None):
         """
         Function that fits the model with the provided time serie.
         Estimation use the MLE as estimator.
@@ -271,7 +273,7 @@ class AR(Model):
 
         """
         
-        self.prev_x = np.array([ts[self.params.order-i:-i] for i in range(1,self.params.order+1)])
+        self.prev_x = TransformedTS([ts[self.params.order-i:-i] for i in range(1,self.params.order+1)])
         x0 = self.get_initial_guess() if init_guess is None else init_guess
 
         var_idx = [0]
@@ -291,24 +293,27 @@ class AR(Model):
         self.ts = ts
         self.get_residuals()
         self.end_ts = np.flip(ts[-self.params.order:])   # 'flip' in order to have the most recent obs. at the beginning of array
+        self.end_ts = TransformedTS(self.end_ts)
         
         del(self.prev_x)
         del(self.idx_params)
     
-    def predict_at_step(self, prev_x:np.ndarray, steps:np.int64):
+    def predict_at_step(self, prev_x:TransformedTS, steps:np.int64):
         # Note : this function may be cached since it uses a recursion.
         # prev_x must strictly be the size of the order of the model
         # the most recent obs is at the beginning of the array
         # Check if steps > 0.
-        current_pred = self.params.phis @ prev_x
+        current_pred = self.params.phis @ prev_x()
         if steps == 1:
             return current_pred
         else:
             new_prev_x = np.concatenate(([current_pred], prev_x[:-1]))
+            new_prev_x = TransformedTS(new_prev_x)
             return self.predict_at_step(new_prev_x, steps - 1)
     
-    def rolling_pred(self, prev_x:np.ndarray, steps:np.int64):
+    def rolling_pred(self, prev_x:TransformedTS, steps:np.int64):
         pred = np.empty((steps, ), dtype=np.float64)
+        pred = TransformedTS(pred)
         for i in range(steps):
             pred[i] = self.predict_at_step(prev_x, i+1)  # '+1' since it loop start with '0'.
         return pred
