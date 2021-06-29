@@ -8,6 +8,9 @@ from Dataware import *
 import multiprocessing
 from functools import partial
 from time import time
+from Arrays import *
+from Transformations import *
+from copy import deepcopy
 
 path_project = 'C:\\Users\\guill\\OneDrive\\Trading\\Python\\Projects'
 path_data = path_project + '\\Data_Binance\\15m'
@@ -16,9 +19,10 @@ path_stats = path_project + '\\ProbaDingue\\export_all_stats.csv'
 class Universe:
     tickers:np.ndarray
     backtests:np.ndarray
-    def __init__(self, model:Model, trade_logic:Trade_Logic):
+    def __init__(self, model:Model, trade_logic:Trade_Logic, pipe:Transform_Pipeline):
         self.model = model
         self.trade_logic = trade_logic
+        self.pipe = pipe
         self.n_backtest_period = 250
         
         self.filterUniverse()
@@ -35,14 +39,12 @@ class Universe:
     
     def run_one_backtest(self, ticker:str):
         path_ticker = path_data + '\\' + ticker + '.csv'
-        data = pd.read_csv(path_ticker, sep=';', encoding='utf-8', index_col=0)['Close']
+        data = pd.read_csv(path_ticker, sep=';', encoding='utf-8', index_col=0)['Close']    # 'data' is a pandas Dataframe !
+        data = TS(data.to_numpy())
         
-        # This data transformation will be done in a separate class
-        data = data.pct_change()
-        data = np.log1p(data)[1:]
-        data = data.to_numpy()
+        pipe_copy = deepcopy(self.pipe)
         
-        fwdB = WalkForwardBacktester(self.model, self.trade_logic, data, len(data) - self.n_backtest_period)
+        fwdB = WalkForwardBacktester(self.model, self.trade_logic, data, pipe_copy, len(data) - self.n_backtest_period)
         fwdB.run()
         return (ticker,fwdB)
         
@@ -54,13 +56,18 @@ class Universe:
     def plot_PnLs(self):
         fig, ax = plt.subplots(1,1,figsize=(12, 8))
         for key, value in self.backtests.items():
-            ax.plot(np.cumsum(value.PnL))
+            ax.plot(np.cumprod(1.0 + value.PnL))
             
         
 if __name__ == '__main__':
     m = AR(1)
-    logic = AR_logic(0.2, 1, 1)
-    u = Universe(m, logic)
+    
+    pipe = Transform_Pipeline()
+    pipe = pipe + Logarize()
+    pipe = pipe + Difference('full')
+    
+    logic = AR_logic(pipe, -0.1, 1, 1)
+    u = Universe(m, logic, pipe)
     
     start = time()
     u.run_backtests()

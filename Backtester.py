@@ -11,16 +11,19 @@ from time import time
 from functools import partial
 from copy import deepcopy
 from Arrays import *
+from Transformations import *
 
 class WalkForwardBacktester:
     model_history:np.ndarray
     trade_history:list
     PnL:np.ndarray
     PnL_statistics:Statistics
-    def __init__(self, model:Model, trade_logic:Trade_Logic, ts:TransformedTS, n_train:np.int8):
+    def __init__(self, model:Model, trade_logic:Trade_Logic, ts:TS, pipe:Transform_Pipeline, n_train:np.int8):
         self.model = model  # Model should already be initialised
         self.trade_logic = trade_logic  # Trade_logic should already be initialised
-        self.ts = ts    # This array is supposed to be the ts in price (not transformed)
+        self.ts = ts    # This array is supposed to be a 'TS' object (not transformed)
+        # Remember that TransformedTS has the recipe.
+        self.pipe = pipe     # Should already be initialised
         self.n_train = n_train
         self.n_periods = len(self.ts) - self.n_train
         self.trade_history = []
@@ -31,19 +34,22 @@ class WalkForwardBacktester:
     def run(self):
         self.model_history = np.empty((self.n_periods,), dtype=Model)
         for i in range(self.n_periods):
-            sequence = self.ts[i:i+self.n_train]
-            self.__fit_model_to_sequence(sequence, None) if i == 0 else self.__fit_model_to_sequence(sequence, self.model_history[i-1].params.to_array())
+            sequence_orig = TS(self.ts[i:i+self.n_train])
+            sequence = self.pipe.transform(sequence_orig)    # sequence is now a 'TransformedTS' object
+            
+            self.__fit_model_to_sequence(sequence(), None) if i == 0 else self.__fit_model_to_sequence(sequence(), self.model_history[i-1].params.to_array())
             self.model_history[i] = deepcopy(self.model)
             
             self.trade_logic.update_logic(self.model_history[i], sequence)
             
             if self._is_trade_open():
-                self.trade_history[-1].add_position(i, sequence[-1]) # 'sequence' must be the log_return of the original TS !
+                r = (sequence_orig[-1] - sequence_orig[-2]) / sequence_orig[-2]
+                self.trade_history[-1].add_position(i-1, r) # '-1' since the trade was opened last period. ?????
                 if self.trade_logic.close_trade():
                     self.trade_history[-1].close()
             else:
                 if self.trade_logic.open_trade():
-                    self.trade_history.append(Trade(i+1)) # '+1' since the trade is actually opened the next period
+                    self.trade_history.append(Trade(i))
                     # Check if last 'Trade' is empty
         self.__compute_PnL()
         self.PnL_statistics = Statistics(self.PnL)
@@ -73,7 +79,7 @@ class WalkForwardBacktester:
         self.PnL = np.zeros((self.n_periods,), dtype=np.float64)
         for trade in self.trade_history:
             for position in trade.positions:
-                self.PnL[position.idx_open] = position.log_return
+                self.PnL[position.idx_open] = position.get_returns()
     
     def plot_PnL(self):
         fig, ax = plt.subplots(3,1,figsize=(12, 8))
@@ -81,7 +87,7 @@ class WalkForwardBacktester:
         
         ax[0].plot(self.ts[-self.n_periods:])
         ax[1].plot(self.PnL)
-        ax[2].plot(np.cumsum(self.PnL))
+        ax[2].plot(np.cumprod(1.0 + self.PnL))
         
         
 
@@ -109,18 +115,26 @@ if __name__ == '__main__':
     
     # np.random.seed(123)
     
-
+    init_m = AR(1)
+    init_m.set_params(np.array([-0.3]), 0.001)
+    data = init_m.sample(3000)
     
-    # logic = Trade_random(0.1, 4)
-    logic = AR_logic(0.2, 1, 1)
+    data = np.exp(np.cumsum(data))
     
-    partial_worker = partial(worker2, logic)
+    pipe = Transform_Pipeline()
+    pipe = pipe + Logarize()
+    pipe = pipe + Difference('full')
+    # logic = Trade_random(pipe, 0.1, 4)
+    logic = AR_logic(pipe, -0.05, 1, 1)
     
     start = time()
     
-    # fwdB = WalkForwardBacktester(AR(2), logic, data, 2750)
-    # fwdB.run()
-    # fwdB.plot_PnL()
+    fwdB = WalkForwardBacktester(AR(1), logic, data, pipe, 2750)
+    fwdB.run()
+    fwdB.plot_PnL()
+    
+    
+    # partial_worker = partial(worker2, logic)
     
     # init_m.fit(data)
     # print(init_m.params.to_dict())()
@@ -134,8 +148,6 @@ if __name__ == '__main__':
     # result = pool.map_async(partial_worker, range(15))
     
     # PnL = np.array(result.get()).ravel()
-    
-    plt.hist(PnL, bins=100)
     
     
     end = time()

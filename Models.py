@@ -25,6 +25,7 @@ class Model:
         pass
     
     def sample(self, n:np.int64):
+        # This function gives us the most recent observation at the end of the array !
         sple = np.empty((n,), dtype=np.float64)
         sple = TransformedTS(sple)
         gen = self.draw()
@@ -153,7 +154,7 @@ class AR(Model):
             conditional expectation given 'prev_x'.
 
         """
-        return anp.dot(phis, self.prev_x())
+        return np.dot(phis, self.prev_x())
     
     def get_conditional_variance(self, var_e:np.ndarray):
     
@@ -280,15 +281,16 @@ class AR(Model):
         mean_idx = [i for i in range(1, self.params.order+1)]
         self.idx_params = [var_idx, mean_idx]
         
-        esti, esti_var, res = estim.MLE(self).get_estimator(ts[self.params.order:], self.idx_params, x0)
+        # esti, esti_var, res = estim.MLE(self).get_estimator(ts[self.params.order:], self.idx_params, x0)
+        esti, res = estim.MLE(self).get_estimator(ts[self.params.order:], self.idx_params, x0)
         self.res = res
         temp_var_e, temp_phis = esti
-        temp_var_e_var, temp_phis_var = esti_var
+        # temp_var_e_var, temp_phis_var = esti_var
         
         self.params.set_phis(temp_phis)
         self.params.set_var_e(temp_var_e)
-        self.params.set_phis_var(temp_phis_var)
-        self.params.set_var_e_var(temp_var_e_var)
+        # self.params.set_phis_var(temp_phis_var)
+        # self.params.set_var_e_var(temp_var_e_var)
         
         self.ts = ts
         self.get_residuals()
@@ -337,6 +339,7 @@ class AR(Model):
         
     def rolling_var_pred(self, steps:np.int64):
         var_pred = np.empty((steps, ), dtype=np.float64)
+        var_pred = TransformedTS(var_pred)
         for i in range(steps):
             var_pred[i] = self.predict_var_at_step(i)
         return var_pred
