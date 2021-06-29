@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from Transformations import *
+from copy import deepcopy
 
 class Array:
     def __init__(self, array:np.ndarray):
@@ -52,6 +53,9 @@ class TS(Array):
     def __init__(self, array:np.ndarray):
         # Most recent observation at the end of array !
         super().__init__(array)
+        
+    def set_name(self, name:str):
+        self.name = name
     
 
 class Transform_Pipeline:
@@ -80,7 +84,7 @@ class Transform_Pipeline:
         # Run the 'ts' through the pipe. 
         # Must return a 'TransformedTS' object along with the recipe of transformations (with used params as dict).
         # the transformation params will be used to inverse the transform.
-        tmp = ts()
+        tmp = deepcopy(ts)
         recipe = {}
         for key, value in self.transformations.items():
             tmp, recipe[key] = value.apply_transform(tmp)
@@ -92,7 +96,7 @@ class Transform_Pipeline:
     
     def reverse_transform(self, ts:TransformedTS):
         # Note that the 'TransformedTS' contains the recipe.
-        tmp = ts()
+        tmp = deepcopy(ts)
         for key, value in reversed(ts.transformations.items()):
             tmp = self.transformations[key].reverse_transform(tmp, value)
             
